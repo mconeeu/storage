@@ -4,13 +4,13 @@ import Storage from "../services/Storage";
 
 const multer = require('multer');
 
-export const api = express.Router();
+export const storageEntrypoint = express.Router();
 
-api.get('/', (req: Request, res: Response) => {
+storageEntrypoint.get('/', (req: Request, res: Response) => {
     res.sendStatus(200);
 });
 
-api.get('/:path', (req: Request, res: Response) => {
+storageEntrypoint.get('/:path', (req: Request, res: Response) => {
     const path = req.params.path;
     if (path) {
         res.send(StorageService.listEntries(path));
@@ -19,7 +19,7 @@ api.get('/:path', (req: Request, res: Response) => {
     }
 });
 
-api.post('/upload/:path', multer({storage: Storage}).single('entry'), (req, res, next) => {
+storageEntrypoint.post('/upload/:path', multer({storage: Storage}).single('entry'), (req, res, next) => {
     if (req.params.path) {
         const file = req.file
         if (!file) {
@@ -32,7 +32,7 @@ api.post('/upload/:path', multer({storage: Storage}).single('entry'), (req, res,
     }
 });
 
-api.get('/download/:path', function (req, res) {
+storageEntrypoint.get('/download/:path', function (req, res) {
     const path = req.params.path;
     if (path) {
         res.download(StorageService.STORAGE_PATH + path);
