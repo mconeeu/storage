@@ -58,7 +58,7 @@ try {
     app.use('/api/replay', replayRoute);
 
 //---------- SERVER --------------------
-    app.listen(5000, () => {
+    app.listen(process.env.PORT, () => {
         console.log('Example app listening on port 5000!');
     });
 } catch (e) {

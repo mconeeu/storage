@@ -1,7 +1,8 @@
 FROM node:12
 
-COPY . /app
+WORKDIR /app
+COPY . .
 
 EXPOSE 5000
 
-CMD ['node', '/app/build/app.js']
+CMD ["node", "/app/build/app.js"]
