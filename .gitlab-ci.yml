@@ -1,0 +1,112 @@
+variables:
+  PROJECT_NAME: mcone-storage
+  REGISTRY_PATH: website/storage
+  DOCKER_IMG_NAME: mcone/storage
+  DEPLOY_FOLDER: /var/www/docker/
+  SENTRY_PROJECTS: -p mcone-storage
+
+stages:
+  - build
+  - deploy
+
+build:
+  tags:
+    - composer
+  stage: build
+  image: node:12
+  script:
+    # Install dependencies
+    - npm install
+    # Set env vars
+    - echo "MONGODB_URL=${MONGODB_URL}" >> .env
+    - echo "RELEASE=\"${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}\"" >> .env
+    - echo "SENTRY_DSN=${SENTRY_DSN}" >> .env
+    # set credentials for plugins composer repo
+    - tsc
+    # copy project environment variables
+    - cp .env.production build/.env
+    # copy Dockerfile
+    - cp Dockerfile build/
+    # Create a release
+    - sentry-cli releases new $SENTRY_PROJECTS "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+    # Associate commits with the release
+    - sentry-cli releases set-commits --auto "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+  cache:
+    paths:
+      - node_modules/
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 day
+  only:
+    - tags
+
+# Build the image with the previous compiled artifacts on remote docker server
+deploy_image:
+  stage: deploy
+  image: $CI_REGISTRY/docker/ssh-rsync
+  # add the remote docker server ssh private key
+  before_script:
+    - mkdir -p ~/.ssh
+    - eval $(ssh-agent -s)
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - bash -c "ssh-add <(echo '$DOCKER_DEPLOY_PRIVATE_KEY')"
+  script:
+    # create docker image dir for tar file if not exists
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "mkdir -p $DEPLOY_FOLDER/$PROJECT_NAME/$CI_COMMIT_TAG"
+    # uploading project
+    - rsync -ra -e ssh ./build $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST:$DEPLOY_FOLDER/$PROJECT_NAME/$CI_COMMIT_TAG
+    # build the image
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker build --no-cache -t $DOCKER_IMG_NAME:$CI_COMMIT_TAG $DEPLOY_FOLDER/$PROJECT_NAME/$CI_COMMIT_TAG/"
+    # remove uploaded Dockerfile
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "rm -R $DEPLOY_FOLDER/$PROJECT_NAME/$CI_COMMIT_TAG"
+  only:
+    - tags
+
+# starting the container from the previous uploaded image
+deploy_container:
+  stage: deploy
+  image: $CI_REGISTRY/docker/ssh-rsync
+  # add the remote docker server ssh private key
+  before_script:
+    - mkdir -p ~/.ssh
+    - eval $(ssh-agent -s)
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - bash -c "ssh-add <(echo '$DOCKER_DEPLOY_PRIVATE_KEY')"
+  script:
+    # get old containers id by finding it with its image name
+    - "OLD_CONTAINER_ID=$(ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST \"docker container ls -a | grep '$DOCKER_IMG_NAME' | awk '{print \\$1}' | xargs echo\")"
+    # start new container and save its id
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker run --restart always -d $DOCKER_IMG_NAME:$CI_COMMIT_TAG"
+    # save new container id
+    - 'NEW_CONTAINER_ID=$(ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker ps -aq --filter ancestor=$DOCKER_IMG_NAME:$CI_COMMIT_TAG --format=\"{{.ID}}\"")'
+    # connect new container to nginx proxy network
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker network connect nginx $NEW_CONTAINER_ID"
+    # create nginx config dir if nothing exists
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "mkdir -p /srv/nginx/config/conf.d/$PROJECT_NAME"
+    # remove old configs from nginx config dir
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "rm -f /srv/nginx/config/conf.d/$PROJECT_NAME/*"
+    # save new container ip
+    - 'NEW_CONTAINER_IP=$(ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker inspect $NEW_CONTAINER_ID --format=\"{{ .NetworkSettings.Networks.nginx.IPAddress }}\"")'
+    # replace hostname placeholder with the id of the new container
+    - sed -i "s/\%hostname\%/$NEW_CONTAINER_IP/g" nginx.conf
+    # upload the new created nginx config to project folder
+    - rsync -rav -e ssh ./nginx.conf $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST:/srv/nginx/config/conf.d/$PROJECT_NAME/
+    # reload the nginx proxy
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker exec nginx service nginx reload"
+    # stop and remove the old container
+    - '[[ -n $OLD_CONTAINER_ID ]] && ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker stop $OLD_CONTAINER_ID | xargs docker rm"'
+    # renaming new container to project name
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker rename $NEW_CONTAINER_ID $PROJECT_NAME"
+    # remove old unused images
+    - ssh -p22 $DOCKER_DEPLOY_USER@$DOCKER_DEPLOY_HOST "docker images -a | grep $DOCKER_IMG_NAME | awk '{print \$3}' | xargs docker rmi || true"
+    # finalize sentry release
+    - sentry-cli releases finalize "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+    # inform sentry about release deployment
+    - sentry-cli releases deploys "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}" new -e production
+  environment:
+    name: MC ONE Storage
+    url: https://storage.mcone.eu
+  dependencies: []
+  only:
+    - tags

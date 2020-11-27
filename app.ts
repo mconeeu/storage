@@ -3,6 +3,8 @@ import express = require('express');
 import bodyParser = require('body-parser')
 import {Request, Response} from "express";
 
+require('dotenv').config()
+
 // sentry logging
 const Sentry = require("@sentry/node");
 const Tracing = require("@sentry/tracing");
@@ -17,8 +19,8 @@ try {
     // ---------- SENTRY Logging ----------
     // initialize sentry logging
     Sentry.init({
-        dsn: "https://16df13405aac449c954d777ef14be2e6@o267551.ingest.sentry.io/5516217",
-        release: "mcone-storage@" + process.env.npm_package_version,
+        dsn: process.env.SENTRY_DSN,
+        release: process.env.RELEASE,
         integrations: [
             // enable HTTP calls tracing
             new Sentry.Integrations.Http({tracing: true}),
@@ -34,7 +36,7 @@ try {
     app.use(Sentry.Handlers.errorHandler());
 
 // ---------- MONGODB ----------
-    mongoose.connect('mongodb://mcone-coresystem:Ga8FEcnf33scTUB33Ju4rWfTA1ScHa1m4h86UYtJLmVKIkM0SGhgTsyoe1XMbbGu@db.labor.mcone.eu:27017?authSource=admin', {
+    mongoose.connect(process.env.MONGODB_URL as string, {
         useNewUrlParser: true,
         useUnifiedTopology: true
     }).then(r => {
