@@ -4,4 +4,4 @@ COPY . /app
 
 EXPOSE 5000
 
-CMD ['node', '/app/app.js']
+CMD ['node', '/app/build/app.js']
