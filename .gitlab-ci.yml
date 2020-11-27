@@ -22,15 +22,15 @@ build:
     - echo "RELEASE=\"${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}\"" >> .env
     - echo "SENTRY_DSN=${SENTRY_DSN}" >> .env
     # set credentials for plugins composer repo
-    - tsc
+    - ./node_modules/.bin/tsc
     # copy project environment variables
     - cp .env.production build/.env
     # copy Dockerfile
     - cp Dockerfile build/
     # Create a release
-    - sentry-cli releases new $SENTRY_PROJECTS "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+    - ./node_modules/.bin/sentry-cli releases new $SENTRY_PROJECTS "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
     # Associate commits with the release
-    - sentry-cli releases set-commits --auto "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
+    - ./node_modules/.bin/sentry-cli releases set-commits --auto "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
   cache:
     paths:
       - node_modules/
