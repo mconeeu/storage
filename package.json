@@ -1,6 +1,6 @@
 {
   "name": "mcone-storage",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Storage API for the replay and world system",
   "main": "app.ts",
   "scripts": {
