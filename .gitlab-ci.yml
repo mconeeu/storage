@@ -17,14 +17,14 @@ build:
   script:
     # Install dependencies
     - npm install
+    # copy project environment variables
+    - cp .env.production .env
     # Set env vars
     - echo "MONGODB_URL=${MONGODB_URL}" >> .env
     - echo "RELEASE=\"${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}\"" >> .env
     - echo "SENTRY_DSN=${SENTRY_DSN}" >> .env
     # set credentials for plugins composer repo
     - ./node_modules/.bin/tsc
-    # copy project environment variables
-    - cp .env.production .env
     # Create a release
     - ./node_modules/.bin/sentry-cli releases new $SENTRY_PROJECTS "${CI_COMMIT_TAG}_${CI_COMMIT_SHORT_SHA}"
     # Associate commits with the release
