@@ -36,6 +36,7 @@ build:
     paths:
       - node_modules/
       - build/
+      - .env
     expire_in: 1 day
   only:
     - tags
