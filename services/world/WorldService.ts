@@ -7,7 +7,7 @@ class WorldService {
     }
 
     static async getWorld(id: String): Promise<any> {
-        return WorldSchema.findOne({w_id: id}).exec();
+        return WorldSchema.findOne({_id: id}).exec();
     }
 
     static async getWorldsWhereName(name: String): Promise<Object> {
