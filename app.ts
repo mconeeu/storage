@@ -46,6 +46,8 @@ try {
     const {worldRoute} = require("./routes/WorldRoute");
     const {replayRoute} = require("./routes/ReplayRoute");
 
+    app.use(bodyParser.raw());
+    app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({extended: true}))
 
 // default
@@ -59,7 +61,7 @@ try {
 
 //---------- SERVER --------------------
     app.listen(process.env.PORT, () => {
-        console.log('Example app listening on port 5000!');
+        console.log('Example app listening on port ' + process.env.PORT + '!');
     });
 } catch (e) {
     if (!process.env.TS_NODE_DEV) {

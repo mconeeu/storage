@@ -11,11 +11,12 @@ const VersionSchema: Schema = new Schema({
 });
 
 const WorldSchema: Schema = new Schema({
+    _id: String,
     name: String,
-    w_id: String,
     contributors: [String],
     versions: [VersionSchema]
 }, {
+    _id: false,
     collection: "worlds",
     minimize: false
 });

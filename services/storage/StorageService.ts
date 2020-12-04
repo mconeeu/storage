@@ -14,7 +14,7 @@ const worldStorage = multer.diskStorage({
 class StorageService {
 
     static readonly STORAGE_PATH: any = process.cwd();
-    static readonly UPLOAD_FOLDER: any = StorageService.STORAGE_PATH + "\\upload";
+    static readonly UPLOAD_FOLDER: any = StorageService.STORAGE_PATH;
     static readonly TMP_FOLDER: any = StorageService.UPLOAD_FOLDER + "\\tmp";
 
     static listEntries(requestPath: string): object {
