@@ -1,7 +1,7 @@
 import mongoose, {Schema} from 'mongoose';
 
 const VersionSchema: Schema = new Schema({
-    version: Array,
+    version: [Number],
     author: String,
     changelog: String,
     time: Number

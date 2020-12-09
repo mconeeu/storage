@@ -13,7 +13,7 @@ worldRoute.post('/:id', multer({storage: worldStorage}).single('document'), asyn
     const {id} = req.params;
 
     if (file) {
-        const tmpFile = StorageService.TMP_FOLDER + "\\" + file.originalname;
+        const tmpFile = StorageService.TMP_FOLDER + "/" + file.originalname;
 
         try {
             if (id) {
@@ -52,7 +52,7 @@ worldRoute.post('/:id', multer({storage: worldStorage}).single('document'), asyn
 
                         world.versions.push(versionObj);
 
-                        await StorageService.move(tmpFile, StorageService.UPLOAD_FOLDER + "\\" + world._id, version.toString().split(",").join("-"))
+                        await StorageService.move(tmpFile, StorageService.UPLOAD_FOLDER + "/" + world._id, version.toString().split(",").join("-"))
                             .then(async (result) => {
                                 await world.save();
                             }).catch((err) => {
@@ -86,27 +86,31 @@ worldRoute.post('/:id', multer({storage: worldStorage}).single('document'), asyn
 });
 
 // POST/UPLOAD a new world
-worldRoute.post('/insert/:id', multer({storage: worldStorage}).single('document'), async (req: Request, res: Response) => {
+worldRoute.post('/insert', multer({storage: worldStorage}).single('document'), async (req: Request, res: Response) => {
     const file = req.file
-    const {id} = req.params;
-    const tmpFile = StorageService.TMP_FOLDER + "\\" + file.originalname;
+    const tmpFile = StorageService.TMP_FOLDER + "/" + file.originalname;
+
+    const crypto = require('crypto');
+    let id;
+    do {
+        id = crypto.randomBytes(6).toString('hex');
+    } while (await WorldService.getWorld(id));
 
     try {
         if (id) {
             let world: any = await WorldSchema.findOne({_id: id}).exec();
 
             if (!world) {
-                const {initiator, name, contributors} = req.body;
+                const {initiator, name} = req.body;
 
-                if (initiator && name && contributors) {
+                if (initiator && name) {
                     try {
-                        const parsedContributors = JSON.parse(contributors.toString());
-                        const version = [1, 0, 0];
+                        const version = [0, 0, 1];
 
                         const world = new WorldSchema({
                             _id: id,
                             name: name,
-                            contributors: parsedContributors,
+                            contributors: [initiator],
                             versions: [{
                                 version: version,
                                 author: initiator,
@@ -116,7 +120,7 @@ worldRoute.post('/insert/:id', multer({storage: worldStorage}).single('document'
                         });
 
                         // move file
-                        await StorageService.move(tmpFile, StorageService.UPLOAD_FOLDER + "\\" + id, version.toString().split(",").join("-"))
+                        await StorageService.move(tmpFile, StorageService.UPLOAD_FOLDER + "/" + id, version.toString().split(",").join("-"))
                             .then(async (result) => {
                                 await world.save();
                                 res.send(world);
@@ -155,7 +159,7 @@ worldRoute.get('/', function (req, res) {
     if (id && version) {
         try {
             const versionArray = JSON.parse(version.toString());
-            const path = StorageService.UPLOAD_FOLDER + "\\" + id + "\\" + versionArray.toString().split(",").join("-")
+            const path = StorageService.UPLOAD_FOLDER + "/" + id + "/" + versionArray.toString().split(",").join("-")
             if (StorageService.existPath(path)) {
                 res.download(path);
             } else {
